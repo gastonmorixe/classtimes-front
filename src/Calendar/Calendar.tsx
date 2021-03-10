@@ -9,6 +9,11 @@ import timezone from "dayjs/plugin/timezone"
 import utc from "dayjs/plugin/utc"
 import { useQuery, gql } from "@apollo/client"
 import IntervalTree from "interval-tree-type"
+import {
+  RRule
+  // RRuleSet,
+  // rrulestr
+} from "rrule"
 
 import { GetAllEvents } from "../types/GetAllEvents"
 import {
@@ -50,7 +55,7 @@ const ALL_EVENTS = gql`
 
 interface ICalendar {
   title?: React.ReactNode
-  eventTree: TEventTree
+  eventTreeCallback: (range: [Dayjs, Dayjs]) => TEventTree
 }
 
 const generateWeekdays = (selectedDate: Dayjs) => {
@@ -83,7 +88,7 @@ const generateNow = () => {
 }
 
 export const Calendar: React.FC<ICalendar> = (props) => {
-  const { eventTree, title } = props
+  const { eventTreeCallback, title } = props
   const [timezone, setTimezone] = React.useState(() => dayjs.tz.guess())
   const { now } = generateNow()
   const [selectedDate, setSelectedDate] = React.useState(now)
@@ -92,6 +97,10 @@ export const Calendar: React.FC<ICalendar> = (props) => {
     console.log("generating weekDays", { result })
     return result
   }, [selectedDate])
+
+  const eventTree = React.useMemo(() => {
+    return eventTreeCallback([weekDays[0], weekDays[weekDays.length - 1]])
+  }, [weekDays, eventTreeCallback])
 
   return (
     <CalendarWrapper>
@@ -120,13 +129,116 @@ const valuesEqual = (a: any, b: any) => true
 //   doStuffWith(interval);
 // }
 
-const eventTreeGenerator: TEventGeneratorTyped = (events) => {
+// import { RRule, RRuleSet, rrulestr } from 'rrule'
+
+const eventTreeGenerator: TEventGeneratorTyped = (events, recurrenceRange) => {
   const tree = new IntervalTree(valuesEqual)
 
   if (events) {
+    const [startRange, endRange] = recurrenceRange
+    const startRangeDate = startRange.toDate()
+    const endRangeDate = endRange.toDate()
+
     for (const event of events) {
       const start = dayjs(event.startDateUtc)
       const end = start.add(event.durationHours, "hours")
+      tree.insert(start, end, event)
+
+      if (recurrenceRange && event.rrule) {
+        // const rule = RRule.fromString(event.rrule)
+        // "DTSTART:20181101T190000;\n"
+        const rule = RRule.fromString(
+          // DTSTART:1998-01-18-T23:00:00
+          // https://www.kanzaki.com/docs/ical/dateTime.html
+          // FORM #2: DATE WITH UTC TIME
+          // The date with UTC time, or absolute time, is identified by a LATIN CAPITAL LETTER Z
+          // suffix character (US-ASCII decimal 90), the UTC designator,
+          // appended to the time value. For example, the following represents
+          // January 19, 1998, at 0700 UTC:
+          // DTSTART:19980119T070000Z
+          // The TZID property parameter MUST NOT be applied to DATE-TIME
+          // properties whose time values are specified in UTC.
+          // FORM #3: DATE WITH LOCAL TIME AND TIME ZONE REFERENCE
+          // The date and local time with reference to time zone information
+          // is identified by the use the TZID property parameter to reference
+          // the appropriate time zone definition. TZID is discussed in detail
+          // in the section on Time Zone. For example, the following represents
+          // 2 AM in New York on Janurary 19, 1998:
+          // DTSTART;TZID=US-Eastern:19980119T020000
+          // Example
+          // The following represents July 14, 1997, at 1:30 PM in New
+          // York City in each of the three time formats, using the "DTSTART"
+          // property.
+          //   DTSTART:19970714T133000            ;Local time
+          //   DTSTART:19970714T173000Z           ;UTC time
+          //   DTSTART;TZID=US-Eastern:19970714T133000    ;Local time and time
+          //                      ; zone reference
+          // A time value MUST ONLY specify 60 seconds when specifying the
+          // periodic "leap second" in the time value. For example:
+          //   COMPLETED:19970630T235960Z
+          `DTSTART:${start.utc().format("YYYYMMDD[T]HHmmss")}Z\nRRULE:${
+            event.rrule
+          }`
+        )
+        // rule.options.dtstart = start.toDate()
+        const ruleQuery = rule.between(startRangeDate, endRangeDate)
+
+        for (const ruleDate of ruleQuery) {
+          // ruleDate.ge
+          const clonedEventStart = ruleDate
+          const clonedEventEnd = dayjs(ruleDate).add(
+            event.durationHours,
+            "hours"
+          )
+          const clonedEvent = Object.create(event, {
+            _startDateUtc: { value: clonedEventStart },
+            startDateUtc: {
+              // toUTCString toISOString toString
+              value: clonedEventStart.toISOString()
+            },
+            _endDateUtc: { value: clonedEventEnd },
+            endDateUtc: {
+              // toUTCString toISOString toString
+              value: clonedEventEnd.toISOString()
+            }
+          })
+          console.log("clonedEvent", {
+            ruleDate,
+            clonedEvent
+            // sd: clonedEvent.startDateUtc
+          })
+          // clonedEvent.endDateUtc = clonedEvent.startDateUtc.add(
+          //   clonedEvent.durationHours,
+          //   "hours"
+          // )
+          tree.insert(
+            clonedEvent._startDateUtc,
+            clonedEvent._endDateUtc,
+            clonedEvent
+          )
+          // clonedEvent.startDateUtc = clonedEvent.startDateUtc
+          // clonedEvent.endDateUtc = clonedEvent.endDateUtc.format()
+        }
+
+        console.log({ rule, ruleQuery })
+
+        //  .fromString(
+        //   "DTSTART;TZID=America/Denver:20181101T190000;\n"
+        //   + "RRULE:FREQ=WEEKLY;BYDAY=MO,WE,TH;INTERVAL=1;COUNT=3"
+        // )
+        // const rule = RRule.fromString(
+        //   "DTSTART;TZID=America/Denver:20181101T190000;\n"
+        //   + "RRULE:FREQ=WEEKLY;BYDAY=MO,WE,TH;INTERVAL=1;COUNT=3"
+        // )
+        // // Create a rule:
+        // const rule = new RRule({
+        //   freq: RRule.WEEKLY,
+        //   interval: 5,
+        //   byweekday: [RRule.MO, RRule.FR],
+        //   dtstart: new Date(Date.UTC(2012, 1, 1, 10, 30)),
+        //   until: new Date(Date.UTC(2012, 12, 31))
+        // })
+      }
       // start.valueOf()
       // console.log("Adding event to tree", {
       //   start,
@@ -134,7 +246,6 @@ const eventTreeGenerator: TEventGeneratorTyped = (events) => {
       //   startValueOf: start.valueOf(),
       //   endValueOf: end.valueOf()
       // })
-      tree.insert(start, end, event)
     }
 
     return {
@@ -152,11 +263,14 @@ export const CalendarWithData = () => {
   const title = data?.events?.[0]?.calendar?.name
   const events = data?.events
 
-  const eventTree = React.useMemo(() => {
-    const result = eventTreeGenerator(events)
-    console.log("save eventTree", result)
-    return result
-  }, [events])
+  const eventTreeCallback = React.useCallback(
+    (range: [Dayjs, Dayjs]) => {
+      const result = eventTreeGenerator(events, range)
+      console.log("save eventTree", result)
+      return result
+    },
+    [data, events]
+  )
 
   // if (eventTree) {
   //   console.log("eventTree parsing", { eventTree })
@@ -169,7 +283,7 @@ export const CalendarWithData = () => {
 
   return (
     <>
-      <Calendar {...{ title, eventTree }} />
+      <Calendar {...{ title, eventTreeCallback }} />
       <Pre>
         loading: {loading ? "loading..." : "loaded"} <br />
         error: {JSON.stringify(error)} <br />

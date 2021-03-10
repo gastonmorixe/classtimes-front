@@ -1,3 +1,4 @@
+import { Dayjs } from "dayjs"
 import { GetAllEvents_events } from "./GetAllEvents"
 
 export interface IEventTreeQueryInterval<T extends unknown> {
@@ -11,6 +12,7 @@ interface TValueOf {
 }
 
 export interface IEventTreeGeneratorReturn<K> {
+  tree: any
   queryInterval<T>(
     low: number | TValueOf,
     high: number | TValueOf
@@ -22,7 +24,7 @@ export interface IEventTreeGeneratorReturn<K> {
 // }
 
 export type TEventGenerator<T> = {
-  <K extends T>(events: K[] | undefined): IEventTreeGeneratorReturn<K>
+  <K extends T>(events: K[] | undefined, recurrenceRange: [start: Dayjs, end: Dayjs]): IEventTreeGeneratorReturn<K>
 }
 
 export type TEventGeneratorTyped = TEventGenerator<GetAllEvents_events>
