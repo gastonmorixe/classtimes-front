@@ -111,20 +111,20 @@ const WeekViewBody: React.FC<IWeekViewBody> = (props) => {
         const dayStart = dayOfWeek.startOf("day")
         const dayEnd = dayStart.endOf("day")
 
-        console.log("[dayOfWeek]", {
-          dayInWeekIndex,
-          dayStart,
-          dayStartValue: dayStart.valueOf(),
-          dayEnd,
-          dayEndValue: dayEnd.valueOf()
-        })
+        // console.log("[dayOfWeek]", {
+        //   dayInWeekIndex,
+        //   dayStart,
+        //   dayStartValue: dayStart.valueOf(),
+        //   dayEnd,
+        //   dayEndValue: dayEnd.valueOf()
+        // })
 
         const graph = new Graph({
           type: "undirected"
         })
 
         for (const queryResultA of eventTree.queryInterval(dayStart, dayEnd)) {
-          console.log("queryResult", { queryResultA })
+          // console.log("queryResult", { queryResultA })
 
           const eventA = eventDataToEvent(queryResultA.value)
 
@@ -165,15 +165,15 @@ const WeekViewBody: React.FC<IWeekViewBody> = (props) => {
         }
 
         groups.set(dayInWeekIndex, groupsWithColumns)
-        console.log("graph " + dayInWeekIndex, {
-          graph,
-          groupsInGraph,
-          groupsWithColumns
-        })
+        // console.log("graph " + dayInWeekIndex, {
+        //   graph,
+        //   groupsInGraph,
+        //   groupsWithColumns
+        // })
       }
     }
 
-    console.log("groups", { groups })
+    // console.log("groups", { groups })
 
     return groups
 
@@ -184,9 +184,9 @@ const WeekViewBody: React.FC<IWeekViewBody> = (props) => {
     //   const val = acc[weekday] ? [...acc[weekday], newEv] : [newEv]
     //   return { ...acc, [weekday]: val }
     // }, {})
-  }, [eventTree]) // TODO ??? selectedDate
+  }, [eventTree, weekDays]) // TODO ??? selectedDate
 
-  console.log({ groupsByWeekDay, eventTree })
+  // console.log({ groupsByWeekDay, eventTree })
 
   // TODO Rendering Overlaping Events
   // google "calendar layout overlapping events"
@@ -226,15 +226,15 @@ const WeekViewBody: React.FC<IWeekViewBody> = (props) => {
             <WeekViewBodyDayColumnWrapper key={weekDayIndex}>
               <WeekViewBodyDayEventsColumnWrapper>
                 {groupsArray?.map((group, groupIndex) => {
-                  console.log(
-                    "[WeekViewBodyDay] rendering day: " +
-                      weekDayIndex +
-                      " | group: " +
-                      (groupIndex + 1) +
-                      "/" +
-                      groupsArray.length,
-                    { group, weekDayIndex, groupIndex }
-                  )
+                  // console.log(
+                  //   "[WeekViewBodyDay] rendering day: " +
+                  //     weekDayIndex +
+                  //     " | group: " +
+                  //     (groupIndex + 1) +
+                  //     "/" +
+                  //     groupsArray.length,
+                  //   { group, weekDayIndex, groupIndex }
+                  // )
 
                   // <WeekViewEventGroupWrapper>
                   return group.map((col, colIndex) => {
@@ -250,13 +250,13 @@ const WeekViewBody: React.FC<IWeekViewBody> = (props) => {
 
                       const duration = (event.durationHours * 100) / 24
 
-                      console.log("[WeekViewEventItem]", {
-                        event,
-                        startDate,
-                        colIndex,
-                        colCount,
-                        topPosition
-                      })
+                      // console.log("[WeekViewEventItem]", {
+                      //   event,
+                      //   startDate,
+                      //   colIndex,
+                      //   colCount,
+                      //   topPosition
+                      // })
 
                       return (
                         <WeekViewEventWrapper
@@ -371,7 +371,7 @@ interface IWeekView {
 
 export const WeekView: React.FC<IWeekView> = (props) => {
   const { now, weekDays, eventTree, selectedDate, setSelectedDate } = props
-  console.log({ props })
+  // console.log({ props })
   return (
     <WeekViewWrapper>
       <WeekViewControls {...{ now, setSelectedDate }} />

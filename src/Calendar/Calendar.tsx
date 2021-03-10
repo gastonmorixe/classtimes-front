@@ -12,7 +12,7 @@ import IntervalTree from "interval-tree-type"
 
 import { GetAllEvents } from "../types/GetAllEvents"
 import {
-  IEventTree,
+  TEventTree,
   // IEventTreeQueryInterval,
   // IEventTreeGeneratorReturn,
   // TEventGenerator,
@@ -50,7 +50,7 @@ const ALL_EVENTS = gql`
 
 interface ICalendar {
   title?: React.ReactNode
-  eventTree: IEventTree
+  eventTree: TEventTree
 }
 
 const generateWeekdays = (selectedDate: Dayjs) => {
@@ -87,7 +87,11 @@ export const Calendar: React.FC<ICalendar> = (props) => {
   const [timezone, setTimezone] = React.useState(() => dayjs.tz.guess())
   const { now } = generateNow()
   const [selectedDate, setSelectedDate] = React.useState(now)
-  const { weekDays } = generateWeekdays(selectedDate)
+  const { weekDays } = React.useMemo(() => {
+    const result = generateWeekdays(selectedDate)
+    console.log("generating weekDays", { result })
+    return result
+  }, [selectedDate])
 
   return (
     <CalendarWrapper>
@@ -124,12 +128,12 @@ const eventTreeGenerator: TEventGeneratorTyped = (events) => {
       const start = dayjs(event.startDateUtc)
       const end = start.add(event.durationHours, "hours")
       // start.valueOf()
-      console.log("Adding event to tree", {
-        start,
-        end,
-        startValueOf: start.valueOf(),
-        endValueOf: end.valueOf()
-      })
+      // console.log("Adding event to tree", {
+      //   start,
+      //   end,
+      //   startValueOf: start.valueOf(),
+      //   endValueOf: end.valueOf()
+      // })
       tree.insert(start, end, event)
     }
 
@@ -149,8 +153,9 @@ export const CalendarWithData = () => {
   const events = data?.events
 
   const eventTree = React.useMemo(() => {
-    console.log("save eventTree")
-    return eventTreeGenerator(events)
+    const result = eventTreeGenerator(events)
+    console.log("save eventTree", result)
+    return result
   }, [events])
 
   // if (eventTree) {
