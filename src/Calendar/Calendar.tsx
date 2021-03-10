@@ -1,5 +1,5 @@
 import React from "react"
-import styled from "styled-components"
+import styled, { createGlobalStyle } from "styled-components"
 import dayjs, { Dayjs } from "dayjs"
 import localeData from "dayjs/plugin/localeData"
 import duration from "dayjs/plugin/duration"
@@ -54,6 +54,7 @@ const ALL_EVENTS = gql`
 `
 
 interface ICalendar {
+  startAtHour?: number
   title?: React.ReactNode
   eventTreeCallback: (range: [Dayjs, Dayjs]) => TEventTree
 }
@@ -88,7 +89,7 @@ const generateNow = () => {
 }
 
 export const Calendar: React.FC<ICalendar> = (props) => {
-  const { eventTreeCallback, title } = props
+  const { eventTreeCallback, title, startAtHour } = props
   const [timezone, setTimezone] = React.useState(() => dayjs.tz.guess())
   const { now } = generateNow()
   const [selectedDate, setSelectedDate] = React.useState(now)
@@ -99,11 +100,15 @@ export const Calendar: React.FC<ICalendar> = (props) => {
   }, [selectedDate])
 
   const eventTree = React.useMemo(() => {
-    return eventTreeCallback([weekDays[0], weekDays[weekDays.length - 1]])
+    return eventTreeCallback([
+      weekDays[0].startOf("day"), // if weekdays are ensured to start on the beggining this may be usless extra work.
+      weekDays[weekDays.length - 1].endOf("day")
+    ])
   }, [weekDays, eventTreeCallback])
 
   return (
     <CalendarWrapper>
+      <GlobalStyles />
       {title && <CalendarTitle className="title">{title}</CalendarTitle>}
       <CalendarSubtitle className="subtitle">
         {selectedDate.format("MMMM YYYY")}
@@ -117,7 +122,14 @@ export const Calendar: React.FC<ICalendar> = (props) => {
         </select>
       </CalendarTimezone>
       <WeekView
-        {...{ eventTree, setSelectedDate, selectedDate, now, weekDays }}
+        {...{
+          startAtHour,
+          eventTree,
+          setSelectedDate,
+          selectedDate,
+          now,
+          weekDays
+        }}
       />
     </CalendarWrapper>
   )
@@ -147,6 +159,7 @@ const eventTreeGenerator: TEventGeneratorTyped = (events, recurrenceRange) => {
       if (recurrenceRange && event.rrule) {
         // const rule = RRule.fromString(event.rrule)
         // "DTSTART:20181101T190000;\n"
+        // @see {link https://github.com/jakubroztocil/rrule}
         const rule = RRule.fromString(
           // DTSTART:1998-01-18-T23:00:00
           // https://www.kanzaki.com/docs/ical/dateTime.html
@@ -181,9 +194,13 @@ const eventTreeGenerator: TEventGeneratorTyped = (events, recurrenceRange) => {
           }`
         )
         // rule.options.dtstart = start.toDate()
-        const ruleQuery = rule.between(startRangeDate, endRangeDate)
+        const ruleQuery = rule.between(startRangeDate, endRangeDate, false)
 
         for (const ruleDate of ruleQuery) {
+          if (ruleDate.valueOf() === start.valueOf()) {
+            // skip same event
+            continue
+          }
           // ruleDate.ge
           const clonedEventStart = ruleDate
           const clonedEventEnd = dayjs(ruleDate).add(
@@ -283,12 +300,12 @@ export const CalendarWithData = () => {
 
   return (
     <>
-      <Calendar {...{ title, eventTreeCallback }} />
-      <Pre>
+      <Calendar startAtHour={5.8} {...{ title, eventTreeCallback }} />
+      {/* <Pre>
         loading: {loading ? "loading..." : "loaded"} <br />
         error: {JSON.stringify(error)} <br />
         data: {JSON.stringify(data, null, 2)}
-      </Pre>
+      </Pre> */}
     </>
   )
 }
@@ -304,3 +321,15 @@ const Pre = styled.pre`
 const CalendarTitle = styled.h2``
 const CalendarSubtitle = styled.div``
 const CalendarTimezone = styled.div``
+
+const GlobalStyles = createGlobalStyle`
+  :root{
+    --event-right-margin: 0.2rem;
+    
+    /** 
+      * Week View Body 
+     **/
+    --week-view-body-bg: rgba(0,0,0,.2);
+    --week-view-times-bg: white;
+  }
+`

@@ -28,6 +28,7 @@ interface IWeekViewBody {
   selectedDate: Dayjs
   weekDays: Dayjs[]
   eventTree: TEventTree
+  startAtHour?: number
 }
 
 type TGroupEvent = Array<Set<IEvent>> // column[Set<IEvent>]
@@ -97,7 +98,7 @@ function fit(graph: Graph, group: string[]) {
 }
 
 const WeekViewBody: React.FC<IWeekViewBody> = (props) => {
-  const { weekDays, selectedDate, eventTree } = props
+  const { startAtHour, weekDays, selectedDate, eventTree } = props
   const { times } = generateTimes(selectedDate) // todo memoize
 
   const groupsByWeekDay = React.useMemo(() => {
@@ -206,79 +207,99 @@ const WeekViewBody: React.FC<IWeekViewBody> = (props) => {
   // https://github.com/jquense/react-big-calendar/pull/1473
   // https://fullcalendar.io/docs/slotEventOverlap
 
+  const weekViewBodyWrapperRef = React.useRef<HTMLDivElement>()
+
+  React.useLayoutEffect(() => {
+    if (startAtHour && weekViewBodyWrapperRef.current) {
+      const startPercent = startAtHour / 24
+      const scrollHeight = weekViewBodyWrapperRef.current.scrollHeight
+      weekViewBodyWrapperRef.current.scrollTop = scrollHeight * startPercent
+    }
+  }, [])
+
   return (
-    <WeekViewBodyWrapper>
-      <WeekViewBodyTimesColumnWrapper>
-        {times.map((time) => {
-          return (
-            <WeekViewBodyTimeWrapper key={time}>{time}</WeekViewBodyTimeWrapper>
-          )
-        })}
-      </WeekViewBodyTimesColumnWrapper>
+    <WeekViewBodyWrapper ref={weekViewBodyWrapperRef}>
+      <WeekViewBodyContentWrapper>
+        <WeekViewBodyTimesColumnWrapper>
+          {times.map((time) => {
+            return (
+              <WeekViewBodyTimeWrapper key={time}>
+                {time}
+              </WeekViewBodyTimeWrapper>
+            )
+          })}
+        </WeekViewBodyTimesColumnWrapper>
 
-      <WeekViewBodyDayColumnsWrapper>
-        {weekDays.map((weekDay, weekDayIndex) => {
-          // TODO weekDay indeox to weekDay dayjs obj
-          const groups = groupsByWeekDay?.get(weekDayIndex)
-          const groupsArray = groups ? Array.from(groups) : undefined
+        <WeekViewBodyDayColumnsWrapper>
+          {weekDays.map((weekDay, weekDayIndex) => {
+            // TODO weekDay indeox to weekDay dayjs obj
+            const groups = groupsByWeekDay?.get(weekDayIndex)
+            const groupsArray = groups ? Array.from(groups) : undefined
 
-          return (
-            <WeekViewBodyDayColumnWrapper key={weekDayIndex}>
-              <WeekViewBodyDayEventsColumnWrapper>
-                {groupsArray?.map((group, groupIndex) => {
-                  // console.log(
-                  //   "[WeekViewBodyDay] rendering day: " +
-                  //     weekDayIndex +
-                  //     " | group: " +
-                  //     (groupIndex + 1) +
-                  //     "/" +
-                  //     groupsArray.length,
-                  //   { group, weekDayIndex, groupIndex }
-                  // )
+            return (
+              <WeekViewBodyDayColumnWrapper key={weekDayIndex}>
+                <WeekViewBodyDayEventsColumnWrapper>
+                  {groupsArray?.map((group, groupIndex) => {
+                    // console.log(
+                    //   "[WeekViewBodyDay] rendering day: " +
+                    //     weekDayIndex +
+                    //     " | group: " +
+                    //     (groupIndex + 1) +
+                    //     "/" +
+                    //     groupsArray.length,
+                    //   { group, weekDayIndex, groupIndex }
+                    // )
 
-                  // <WeekViewEventGroupWrapper>
-                  return group.map((col, colIndex) => {
-                    const colCount = group.length
-                    return Array.from(col).map((ev, eventIndex) => {
-                      const { data: event, startDate } = ev
+                    // <WeekViewEventGroupWrapper>
+                    return group.map((col, colIndex) => {
+                      const colCount = group.length
+                      return Array.from(col).map((ev, eventIndex) => {
+                        const { data: event, startDate } = ev
 
-                      let topPosition =
-                        startDate.hour() + startDate.minute() / 60
-                      topPosition *= 100
-                      topPosition /= 24
-                      // topPosition = Math.floor(topPosition)
+                        let topPosition =
+                          startDate.hour() + startDate.minute() / 60
+                        topPosition *= 100
+                        topPosition /= 24
+                        // topPosition = Math.floor(topPosition)
 
-                      const duration = (event.durationHours * 100) / 24
+                        const duration = (event.durationHours * 100) / 24
+                        const isRecurrent = !!event.rrule
+                        // console.log("[WeekViewEventItem]", {
+                        //   event,
+                        //   startDate,
+                        //   colIndex,
+                        //   colCount,
+                        //   topPosition
+                        // })
 
-                      // console.log("[WeekViewEventItem]", {
-                      //   event,
-                      //   startDate,
-                      //   colIndex,
-                      //   colCount,
-                      //   topPosition
-                      // })
-
-                      return (
-                        <WeekViewEventWrapper
-                          {...{ colIndex, colCount, topPosition, duration }}
-                          key={event._id}
-                        >
-                          <div className="content">{event.title}</div>
-                        </WeekViewEventWrapper>
-                      )
+                        return (
+                          <WeekViewEventWrapper
+                            {...{
+                              isRecurrent,
+                              colIndex,
+                              colCount,
+                              topPosition,
+                              duration
+                            }}
+                            key={event._id}
+                          >
+                            <div className="content">{event.title}</div>
+                          </WeekViewEventWrapper>
+                        )
+                      })
                     })
-                  })
-                })}
-              </WeekViewBodyDayEventsColumnWrapper>
-              {times.map((time, i) => (
-                <WeekViewBodyDayTimeSlotWrapper key={i}>
-                  <span>{time}</span>
-                </WeekViewBodyDayTimeSlotWrapper>
-              ))}
-            </WeekViewBodyDayColumnWrapper>
-          )
-        })}
-      </WeekViewBodyDayColumnsWrapper>
+                  })}
+                </WeekViewBodyDayEventsColumnWrapper>
+                {times.map((time, i) => (
+                  <WeekViewBodyDayTimeSlotWrapper key={i}>
+                    <span>{time}</span>
+                  </WeekViewBodyDayTimeSlotWrapper>
+                ))}
+              </WeekViewBodyDayColumnWrapper>
+            )
+          })}
+        </WeekViewBodyDayColumnsWrapper>
+      </WeekViewBodyContentWrapper>
     </WeekViewBodyWrapper>
   )
 }
@@ -367,16 +388,28 @@ interface IWeekView {
   weekDays: Dayjs[]
   setSelectedDate: (selectedDate: Dayjs) => void
   selectedDate: Dayjs
+  startAtHour?: number
 }
 
 export const WeekView: React.FC<IWeekView> = (props) => {
-  const { now, weekDays, eventTree, selectedDate, setSelectedDate } = props
+  const {
+    startAtHour,
+    now,
+    weekDays,
+    eventTree,
+    selectedDate,
+    setSelectedDate
+  } = props
+
   // console.log({ props })
+
   return (
     <WeekViewWrapper>
       <WeekViewControls {...{ now, setSelectedDate }} />
       <WeekViewHeader {...{ weekDays, now, selectedDate }} />
-      <WeekViewBody {...{ eventTree, weekDays, now, selectedDate }} />
+      <WeekViewBody
+        {...{ startAtHour, eventTree, weekDays, now, selectedDate }}
+      />
     </WeekViewWrapper>
   )
 }
@@ -440,14 +473,28 @@ const WeekViewBodyWrapper = styled.div`
   display: flex;
   flex-direction: row;
   flex: 1;
-  background: pink;
+  background: var(--week-view-body-bg, red);
   /* justify-content: space-between; */
   /* justify-content: space-around; */
   font-size: 0.75rem;
   line-height: 0;
+
+  overflow-y: auto;
+  height: 400px;
+  max-height: 400px;
+`
+
+const WeekViewBodyContentWrapper = styled.div`
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+
+  position: relative;
+  height: max-content;
 `
 
 const WeekViewBodyTimesColumnWrapper = styled.div`
+  background: var(--week-view-times-bg, pink);
   display: flex;
   flex-direction: column;
 
@@ -465,6 +512,14 @@ const WeekViewBodyTimesColumnWrapper = styled.div`
 
 const WeekViewBodyTimeWrapper = styled(CellBase)`
   flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  flex-direction: column;
+  line-height: 1;
+  text-align: right;
+  /* T R B L */
+  padding: 0.2rem 0.15rem 0 0;
 `
 
 const WeekViewBodyDayColumnsWrapper = styled.div`
@@ -500,7 +555,7 @@ const WeekViewBodyDayTimeSlotWrapper = styled(CellBase)`
 // Events
 const WeekViewBodyDayEventsColumnWrapper = styled.div`
   position: absolute;
-  border: 1px solid red;
+  /* border: 1px solid red; */
   height: 100%;
   width: 100%;
   /* display: none; */
@@ -511,20 +566,28 @@ interface IWeekViewEventWrapper {
   topPosition: number
   colIndex: number
   colCount: number
+  isRecurrent: boolean
 }
+
 const WeekViewEventWrapper = styled.div<IWeekViewEventWrapper>`
+  display: flex;
   line-height: 1;
   position: absolute;
   top: ${(p) => (p.topPosition ? `${p.topPosition}%` : 0)};
   background: white;
   box-shadow: inset 0 0 0 2px black;
-  padding: 0.25rem;
-  width: ${(p) => Math.floor((1 / p.colCount) * 100)}%;
+  padding: 0.3rem;
+  /* margin-right: 10px; */
+  width: calc(
+    ${(p) => Math.floor((1 / p.colCount) * 100)}% -
+      var(--event-right-margin, 0px)
+  );
   left: ${(p) => Math.floor((p.colIndex / p.colCount) * 100)}%;
   height: ${(p) => (p.duration ? `${p.duration}%` : undefined)};
   /* padding: 0.5rem; */
   text-align: left;
   overflow: hidden;
+  background: ${(p) => (p.isRecurrent ? "yellow" : undefined)};
 
   .content {
     position: absolute;
@@ -534,4 +597,4 @@ const WeekViewEventWrapper = styled.div<IWeekViewEventWrapper>`
 `
 
 // Group
-const WeekViewEventGroupWrapper = styled.div``
+// const WeekViewEventGroupWrapper = styled.div``
