@@ -300,7 +300,11 @@ export const CalendarWithData = () => {
 
   return (
     <>
-      <Calendar startAtHour={5.8} {...{ title, eventTreeCallback }} />
+      <Calendar
+        startAtHour={5.8}
+        showHoursCount={10}
+        {...{ title, eventTreeCallback }}
+      />
       {/* <Pre>
         loading: {loading ? "loading..." : "loaded"} <br />
         error: {JSON.stringify(error)} <br />
